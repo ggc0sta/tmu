@@ -1,0 +1,115 @@
+---
+title: "Logistic Regression"
+author: "Gabriel Costa"
+date: '2022-07-15'
+output: html_document
+---
+
+---
+
+Using data from Yelp to predict the probability of a restaurant having an above average rating.
+
+---
+
+##### 1. Importing required libraries and data set.
+
+Reference to the original data: https://www.yelp.com/dataset
+
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(caret)
+```
+
+
+```{r}
+yelp <- read.csv("https://raw.githubusercontent.com/ggc0sta/tmu/main/data/yelp_dataset.csv",
+                 stringsAsFactors = TRUE)
+yelp <- yelp[,!(names(yelp)  %in% c("id"))] #removing id column
+```
+
+---
+
+##### 2. Describing data
+
+* **city** - Location of each restaurant. Toronto, Markham or Mississauga
+* **class** - Above average rating (0 = no, 1 = yes) 
+* **review_count** - number of reviews in yelp
+* **categories** - type of restaurant
+
+```{r}
+summary(yelp) #no missing values
+```
+
+
+```{r}
+head(yelp)
+```
+
+---
+
+##### 3. Preparing the data for modeling.
+```{r}
+set.seed(1) #for reproducibility
+sampleSize <- floor(0.8*nrow(yelp))
+trainIndex <- sample(1:nrow(yelp), size = sampleSize)
+
+train <- yelp[trainIndex,]
+test <- yelp[-trainIndex,]
+
+# set sizes
+dim(train);dim(test)
+```
+
+##### 4. Creating a Logistic Regression model.
+
+The **glm** function converts the categorical variables **city** and **category** into dummies. As the factors are ordered alphabetically, *Markham* is used as the base city and *Asian* as the base restaurant type.
+
+```{r}
+levels(yelp$city)
+levels(yelp$categories)
+```
+
+```{r}
+model1 <- glm(formula = class ~ ., data =  train, 
+              family = "binomial")
+
+summary(model1)
+```
+---
+
+##### 5. Predicting the probability of a **coffee shop** in **Toronto** to be ranked as above average (**class** = 1), expecting to receive 200 reviews.
+```{r}
+# predict function
+predict(model1, 
+        newdata=data.frame(city = "Toronto", 
+                           review_count = 200, 
+                           categories = "Coffee or Sandwiches"), 
+        type="response")
+
+# manual calculation
+b0 <- model1$coefficients["(Intercept)"][[1]]
+b1 <- model1$coefficients["cityToronto"][[1]]
+b2 <- model1$coefficients["review_count"][[1]]
+b3 <- model1$coefficients["categoriesCoffee or Sandwiches"][[1]]
+
+a <- b0 + b1 + b2*200 + b3
+exp(a)/(1+exp(a))
+
+```
+
+---
+
+##### 6. Evaluating the performance of the model based on accuracy.
+
+```{r}
+predictions <- predict(model1, 
+                       newdata = test, 
+                       type="response") 
+predictions <- ifelse(predictions > 0.5, 1, 0)
+confusionMatrix(data = as.factor(predictions), reference =  as.factor(test$class))
+
+```
+
+
+
+*Based on CMTH642 - Advanced Data Analytics, Lab 7*
